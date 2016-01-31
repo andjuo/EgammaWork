@@ -14,10 +14,11 @@
 
 // Header file for the classes stored in the TTree if any.
 #include "vector"
-#include "vector"
-#include "vector"
-#include "vector"
 #include "TClonesArray.h"
+
+//#include <iostream>
+//inline void HERE(const char *msg) { std::cout << msg << std::endl; }
+
 
 class unfold_RMatrix {
 public :
@@ -261,6 +262,11 @@ public :
    virtual void     Loop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
+
+   // own implementations
+   Double_t deltaPhi(Double_t phi1, Double_t phi2);
+   Double_t deltaEta(Double_t eta1, Double_t eta2);
+   Double_t deltaR(Double_t eta1, Double_t phi1, Double_t eta2, Double_t phi2);
 };
 
 #endif

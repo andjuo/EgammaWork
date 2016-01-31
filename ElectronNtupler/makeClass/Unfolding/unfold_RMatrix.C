@@ -61,11 +61,19 @@ void unfold_RMatrix::Loop()
 
   Double_t xbins[48] = {0,10,15,20,25,30,35,40,45,50,55,60,64,68,72,76,81,86,91,96,101,106,110,115,120,126,133,141,150,160,171,185,200,220,243,273,320,380,440,510,600,700,830,1000,1200,1500,2000,3000};
 
-  TH1D *genPostFSR_Mass = new TH1D("genPostFSR_Mass", "genPostFSR_Mass", 47, xbins);
-  TH2D *responsePost = new TH2D("RM_postFSR", "RM_postFSR", 47, xbins, 47, xbins);
-  TH1D *reco_ZMass = new TH1D("ZMass", "ZMass", 47, xbins);
+  TH1D *genPostFSR_Mass = new TH1D("genPostFSR_Mass", "genPostFSR_Mass;M_{ee,gen,postFSR,inAcc} [GeV];weighted count", 47, xbins);
+  TH2D *responsePost = new TH2D("RM_postFSR", "RM_postFSR;M_{ee,gen,inAcc} [GeV];M_{ee,reco,inAcc} [GeV];weighted count", 47, xbins, 47, xbins);
+  TH1D *reco_ZMass = new TH1D("ZMass", "ZMass;M_{ee,reco,inAcc} [GeV];weighted count", 47, xbins);
+
+  TH1D *recoPostFSRinAcc_Mass = new TH1D("recoPostFSRinAcc_Mass","recoPostFSRinAcc_Mass;M_{postFSR,reco} [GeV];weighted count", 47, xbins);
+  TH1D *genPostFSRinAcc_Mass = new TH1D("genPostFSRinAcc_Mass","genPostFSRinAcc_Mass;M_{postFSR,gen} [GeV];weighted count", 47,xbins);
+
+  TH1D *genPostFSR4pi_Mass= new TH1D("genPostFSR4pi_Mass", "getPostFSR4pi_Mass;M_{postFSR,fullSp} [GeV];weighted count", 47, xbins);
+  TH1D *genPreFSR4pi_Mass = new TH1D("genPreFSR4pi_Mass", "genPreFSR4pi_Mass;Mass_{preFSR,fullSp} [GeV];weighted count", 47, xbins);
+  TH2D *fsrResponse4pi= new TH2D("RM_FSR4pi","RM_FSR4pi;M_{ee,gen,preFSR4pi} [GeV];M_{ee,gen,postFSR4pi} [GeV];weighted count", 47, xbins, 47, xbins);
 
   responsePost->Sumw2(); genPostFSR_Mass->Sumw2(); reco_ZMass->Sumw2();
+  genPostFSR4pi_Mass->Sumw2(); genPreFSR4pi_Mass->Sumw2(); fsrResponse4pi->Sumw2();
 
   if (fChain == 0) return;
 
@@ -233,6 +241,9 @@ void unfold_RMatrix::Loop()
       }
     }
 
+    // recalculate values
+    ZMass_R_post=0; ZMass_G_post=0;
+
     if(recoPost_Pt.size()==2)
     {
       reco1_post.SetPtEtaPhiE(recoPost_Pt.at(0),recoPost_Eta.at(0),recoPost_Phi.at(0),recoPost_Enr.at(0));
@@ -251,7 +262,46 @@ void unfold_RMatrix::Loop()
       ZMass_G_post = digen_post.M();
     }
 
+    recoPostFSRinAcc_Mass->Fill(ZMass_R_post, theWeight);
+    genPostFSRinAcc_Mass->Fill(ZMass_G_post, theWeight);
     responsePost->Fill(ZMass_G_post,ZMass_R_post,theWeight);
+
+    // FSR response
+    if (!tauFlag) {
+      if (nEle>=2) {
+
+	ele1.SetPtEtaPhiE(pt->at(0),eta->at(0),phi->at(0),energy->at(0));
+	ele2.SetPtEtaPhiE(pt->at(1),eta->at(1),phi->at(1),energy->at(1));
+	dielectron=ele1+ele2;
+	Double_t Z_Mass_postFSR4pi = dielectron.M();
+	Double_t Z_Mass_preFSR4pi = 0;
+
+	int nPreFsr=gen_preFSR->GetEntriesFast();
+	//std::cout << "here are nPreFsr=" << nPreFsr << " electrons\n";
+	if (nPreFsr>=2) {
+	  int gen_index[nPreFsr];
+	  float gen_pt[nPreFsr];
+	  for (int i=0; i<nPreFsr; i++) {
+	    const TLorentzVector *e= (TLorentzVector*)(*gen_preFSR)[i];
+	    std::cout << " i = " << e->Perp() << "\n";
+	    gen_pt[i]= e->Perp();
+	  }
+	  TMath::Sort(int(sizeof(gen_pt)/sizeof(gen_pt[0])), gen_pt,gen_index,true);
+
+	  // Assume that 2 leading gen electrons are of our interest
+	  const TLorentzVector *gen_e1= (TLorentzVector*)(*gen_preFSR)[gen_index[0]];
+	  const TLorentzVector *gen_e2= (TLorentzVector*)(*gen_preFSR)[gen_index[1]];
+	  std::cout << "leading electrons: " << gen_e1->Perp() << ", " << gen_e2->Perp() << "\n";
+	  dielectron=(*gen_e1) + (*gen_e2);
+	  Z_Mass_preFSR4pi= dielectron.M();
+	}
+
+	genPostFSR4pi_Mass->Fill(Z_Mass_postFSR4pi, theWeight);
+	genPreFSR4pi_Mass->Fill (Z_Mass_preFSR4pi, theWeight);
+	fsrResponse4pi->Fill(Z_Mass_preFSR4pi,Z_Mass_postFSR4pi,theWeight);
+      }
+    }
+
 
   } // event
 
