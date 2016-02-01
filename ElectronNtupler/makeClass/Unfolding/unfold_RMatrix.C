@@ -280,18 +280,19 @@ void unfold_RMatrix::Loop()
 	//std::cout << "here are nPreFsr=" << nPreFsr << " electrons\n";
 	if (nPreFsr>=2) {
 	  int gen_index[nPreFsr];
-	  float gen_pt[nPreFsr];
+	  float gen_E[nPreFsr];
 	  for (int i=0; i<nPreFsr; i++) {
 	    const TLorentzVector *e= (TLorentzVector*)(*gen_preFSR)[i];
-	    std::cout << " i = " << e->Perp() << "\n";
-	    gen_pt[i]= e->Perp();
+	    std::cout << " i = " << e->E() << "\n";
+	    gen_E[i]= e->E();
 	  }
-	  TMath::Sort(int(sizeof(gen_pt)/sizeof(gen_pt[0])), gen_pt,gen_index,true);
+	  TMath::Sort(int(sizeof(gen_E)/sizeof(gen_E[0])), gen_E,gen_index,true);
 
 	  // Assume that 2 leading gen electrons are of our interest
 	  const TLorentzVector *gen_e1= (TLorentzVector*)(*gen_preFSR)[gen_index[0]];
 	  const TLorentzVector *gen_e2= (TLorentzVector*)(*gen_preFSR)[gen_index[1]];
-	  std::cout << "leading electrons: " << gen_e1->Perp() << ", " << gen_e2->Perp() << "\n";
+	  std::cout << "leading electrons pT: " << gen_e1->Perp() << ", " << gen_e2->Perp() << "\n";
+	  std::cout << "leading electrons E: " << gen_e1->E() << ", " << gen_e2->E() << "\n";
 	  dielectron=(*gen_e1) + (*gen_e2);
 	  Z_Mass_preFSR4pi= dielectron.M();
 	}
