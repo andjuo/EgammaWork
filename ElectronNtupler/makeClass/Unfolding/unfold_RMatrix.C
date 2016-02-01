@@ -7,6 +7,13 @@
 #include <TLorentzVector.h>
 #include <math.h>
 
+#define TEST_RooUnfoldResponse
+
+#ifdef TEST_RooUnfoldResponse
+#include "../RooUnfoldInterface/src/RooUnfoldResponse.h"
+#endif
+
+
 Double_t unfold_RMatrix::deltaPhi(Double_t phi1, Double_t phi2)
 {
   Double_t pi = 3.1415927;
@@ -33,6 +40,11 @@ Double_t unfold_RMatrix::deltaR(Double_t eta1, Double_t phi1, Double_t eta2, Dou
 
 void unfold_RMatrix::Loop()
 {
+
+#ifdef TEST_RooUnfoldResponse
+  RooUnfoldResponse ruResp(nBinsFlat,-0.5,nBinsFlat-0.5,"RUResponse","RUResponse");
+#endif
+
 
   TFile *file = new TFile("dyll_M-50.root", "recreate");
 
@@ -266,6 +278,15 @@ void unfold_RMatrix::Loop()
     genPostFSRinAcc_Mass->Fill(ZMass_G_post, theWeight);
     responsePost->Fill(ZMass_G_post,ZMass_R_post,theWeight);
 
+#ifdef TEST_RooUnfoldResponse
+    int recoFI= flat_index(ZMass_R_post);
+    int genFI = flat_index(ZMass_G_post);
+    if ((genFI!=-1) && (recoFI!=-1)) ruResp.Fill(recoFI,genFI,theWeight);
+    else if ((genFI==-1) && (recoFI!=-1)) ruResp.Fake(recoFI, theWeight);
+    else if ((genFI!=-1) && (recoFI==-1)) ruResp.Miss(genFI, theWeight);
+#endif
+
+
     // FSR response
     if (!tauFlag) {
       if (nEle>=2) {
@@ -305,6 +326,10 @@ void unfold_RMatrix::Loop()
 
 
   } // event
+
+#ifdef TEST_RooUnfoldResponse
+  ruResp.Write();
+#endif
 
   file->Write();
   file->Close();

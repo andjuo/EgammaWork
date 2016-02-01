@@ -16,9 +16,32 @@
 #include "vector"
 #include "TClonesArray.h"
 
-//#include <iostream>
+#include <iostream>
 //inline void HERE(const char *msg) { std::cout << msg << std::endl; }
 
+// -------------------------------------------------------------
+
+// to check cut-off
+//const int nBinsFlat=47-2-8;
+//const Double_t xbinsFlat[nBinsFlat+1] = {55,60,64,68,72,76,81,86,91,96,101,106,110,115,120,126,133,141,150,160,171,185,200,220,243,273,320,380,440,510,600,700,830,1000,1200,1500,2000,3000};
+
+const int nBinsFlat=47-2;
+const Double_t xbinsFlat[nBinsFlat+1] = {15,20,25,30,35,40,45,50,55,60,64,68,72,76,81,86,91,96,101,106,110,115,120,126,133,141,150,160,171,185,200,220,243,273,320,380,440,510,600,700,830,1000,1200,1500,2000,3000};
+
+inline int flat_index(double m) {
+  int i=-1;
+  if ((m>=xbinsFlat[0]) && (m<=xbinsFlat[nBinsFlat])) {
+    i=0;
+    while ((i<nBinsFlat-1) && (m>xbinsFlat[i+1])) {
+      //std::cout << "i=" << i << ", m=" << m << " -- next\n";
+      i++;
+    }
+  }
+  //std::cout << "flat_index: m=" << m << ", fi=" << i << "\n";
+  return i;
+}
+
+// -------------------------------------------------------------
 
 class unfold_RMatrix {
 public :

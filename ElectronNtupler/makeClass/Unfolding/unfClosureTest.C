@@ -8,6 +8,7 @@
 #include "../RooUnfoldInterface/src/RooUnfoldResponse.h"
 #include "../RooUnfoldInterface/src/RooUnfoldBayes.h"
 #include <iostream>
+#include "unfold_RMatrix.h"
 
 #include <TMatrixD.h>
 #include <TVectorD.h>
@@ -45,6 +46,8 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
     tag="_origResol";
   }
 
+  // reposnse matrix constructed from scratch
+  RooUnfoldResponse *origRUResp=NULL;
 
   // Get histograms
   TFile fin(fname);
@@ -56,6 +59,7 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
   TH1D *hTrue= (TH1D*) fin.Get(trueName);
   TH2D *h2Resp=(TH2D*) fin.Get(respName);
   hMeas->SetDirectory(0); hTrue->SetDirectory(0); h2Resp->SetDirectory(0);
+  if (fsrUnf==0) origRUResp=(RooUnfoldResponse*) fin.Get("RUResponse");
   fin.Close();
 
   TH2D* h2RespT=(TH2D*)h2Resp->Clone("h2RespTransposed");
@@ -89,11 +93,42 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
   RooUnfoldResponse ruResp(hMeas,hTrue,h2ResponseUsed, ruName,ruName);
 
   // Create RooUnfoldBayes for closure test
-  int nIters=3;
+  int nIters=1;
   TString rubName="RooUnfBayes_" + tag + Form("_%d",nIters);
   RooUnfoldBayes ruBayesCT( &ruResp,hMeas,nIters,false,rubName,rubName);
   TH1D* hUnf=(TH1D*)ruBayesCT.Hreco();
   hUnf->SetDirectory(0);
+
+  TH1D* hOrigUnf=NULL;
+  if (origRUResp) {
+    // flatten the measured distribution
+    TH1D *hMeasFlat= new TH1D("hMeasFlat","hMeasFlat",nBinsFlat+1,-0.5,nBinsFlat-0.5);
+    hMeasFlat->SetDirectory(0);
+    for (int ibin=0; ibin<=hMeas->GetNbinsX(); ibin++) {
+      double mc= hMeas->GetBinLowEdge(ibin) + 0.5*hMeas->GetBinWidth(ibin);
+      hMeasFlat->Fill( flat_index(mc), hMeas->GetBinContent(ibin) );
+    }
+
+    // perform unfolding
+    TString rubOName="RooUnfBayesOrig_" + tag + Form("_%d",nIters);
+    RooUnfoldBayes ruBayesOrig( origRUResp, hMeasFlat,nIters,false,rubOName,rubOName );
+    TH1D* hUnfFlat=(TH1D*)ruBayesOrig.Hreco();
+    hUnfFlat->SetDirectory(0);
+
+    // deflatten the unfolded distribution
+    hOrigUnf=(TH1D*) hMeas->Clone("hOrigUnf");
+    hOrigUnf->SetDirectory(0);
+    hOrigUnf->SetTitle("original unfold");
+    hOrigUnf->Reset();
+    for (int ibin=1; ibin<=hMeas->GetNbinsX(); ibin++) {
+      double mc= hMeas->GetBinLowEdge(ibin) + 0.5*hMeas->GetBinWidth(ibin);
+      int fi= flat_index(mc);
+      if (fi>=0) {
+	hOrigUnf->SetBinContent( ibin, hUnfFlat->GetBinContent(fi+1) );
+	hOrigUnf->SetBinError  ( ibin, hUnfFlat->GetBinError(fi+1) );
+      }
+    }
+  }
 
 
   TH1D* hUnfByMInv=NULL;
@@ -112,6 +147,7 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
   TString labelMeas="measured";
   TString labelTrue="true";
   TString labelUnf =TString("unf.by Bayes") + Form("[%d]",nIters);
+  TString labelOrigUnf= TString("orig.unf.by Bayes") + Form("[%d]",nIters);
   TString labelUnfMInv="unf.by M inv.";
 
   // rename x label
@@ -124,13 +160,19 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
   cx->SetLogy();
   hMeas->GetYaxis()->SetRangeUser(1e4,1e7);
   prepareHist(hMeas,kBlack,24);
-  prepareHist(hTrue,kBlue,20);
-  prepareHist(hUnf,kRed,4);
+  prepareHist(hTrue,38,20);
+  prepareHist(hUnf,kRed,4); hUnf->SetLineStyle(2);
   hMeas->Draw("LPE");
   hTrue->Draw("LPE same");
   hUnf->Draw("hist same");
+  if (hOrigUnf) {
+    prepareHist(hOrigUnf,6, 5);
+    hOrigUnf->SetMarkerSize(1.6);
+    hOrigUnf->SetLineWidth(2);
+    hOrigUnf->Draw("LPE same");
+  }
   if (hUnfByMInv) {
-    prepareHist(hUnfByMInv,kGreen+1,5);
+    prepareHist(hUnfByMInv,kGreen+1,2);
     hUnfByMInv->Draw("LPE same");
   }
   cx->Update();
@@ -139,6 +181,9 @@ void unfClosureTest(int fsrUnf=0, int flag_drawResponseMatrix=0)
   leg->AddEntry(hMeas,labelMeas,"LP");
   leg->AddEntry(hTrue,labelTrue,"LP");
   leg->AddEntry(hUnf, labelUnf, "LP");
+  if (hOrigUnf) {
+    leg->AddEntry(hOrigUnf, labelOrigUnf, "LP");
+  }
   if (hUnfByMInv) {
     leg->AddEntry(hUnfByMInv, labelUnfMInv, "LP");
   }
