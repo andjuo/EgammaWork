@@ -17,6 +17,7 @@
 #include "TClonesArray.h"
 
 #include <iostream>
+<<<<<<< Updated upstream
 //inline void HERE(const char *msg) { std::cout << msg << std::endl; }
 
 // -------------------------------------------------------------
@@ -42,10 +43,16 @@ inline int flat_index(double m) {
 }
 
 // -------------------------------------------------------------
+=======
+#include <sstream>
+inline void HERE(const char *msg) { std::cout << msg << std::endl; }
+
+// -------------------------------------------------------------
+>>>>>>> Stashed changes
 
 class unfold_RMatrix {
 public :
-   TTree          *fChain;   //!pointer to the analyzed TTree or TChain
+   TChain          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
@@ -276,12 +283,12 @@ public :
    TBranch        *b_phiPhoton;   //!
    TBranch        *b_gen_preFSR;   //!
 
-   unfold_RMatrix(TTree *tree=0);
+   unfold_RMatrix(TString fileList="", TString treeName="");
    virtual ~unfold_RMatrix();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
-   virtual void     Init(TTree *tree);
+   virtual int      Init(TString fileList);
    virtual void     Loop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
@@ -295,20 +302,14 @@ public :
 #endif
 
 #ifdef unfold_RMatrix_cxx
-unfold_RMatrix::unfold_RMatrix(TTree *tree) : fChain(0) 
+unfold_RMatrix::unfold_RMatrix(TString fileList, TString treeName) :
+  fChain((treeName.Length()) ? new TChain(treeName) : 0),
+    fCurrent(-1)
 {
-// if parameter tree is not specified (or zero), connect the file
-// used to generate this class and read the Tree.
-   if (tree == 0) {
-      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("/tmp/rchawla/DYJetsToLL_M-10to50_miniAODv2.root");
-      if (!f || !f->IsOpen()) {
-         f = new TFile("/tmp/rchawla/DYJetsToLL_M-10to50_miniAODv2.root");
-      }
-      TDirectory * dir = (TDirectory*)f->Get("/tmp/rchawla/DYJetsToLL_M-10to50_miniAODv2.root:/ntupler");
-      dir->GetObject("ElectronTree",tree);
-
-   }
-   Init(tree);
+  if (!fileList.Length()) return;
+  if (!Init(fileList)) {
+    std::cout << "unfold_RMatrix constructor: initialization failed\n";
+  }
 }
 
 unfold_RMatrix::~unfold_RMatrix()
@@ -336,7 +337,7 @@ Long64_t unfold_RMatrix::LoadTree(Long64_t entry)
    return centry;
 }
 
-void unfold_RMatrix::Init(TTree *tree)
+int unfold_RMatrix::Init(TString fileList)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -345,6 +346,19 @@ void unfold_RMatrix::Init(TTree *tree)
    // code, but the routine can be extended by the user if needed.
    // Init() will be called many times when running on PROOF
    // (once per file to be processed).
+
+  if (fileList.Length()==0) return 0;
+  if (!fChain) { std::cout << "Init: fChain is null\n"; return 0; }
+
+  TString fname;
+  std::stringstream ss(fileList.Data());
+  while (!ss.eof()) {
+    ss >> fname;
+    if (fname.Length()) {
+      std::cout << "adding file <" << fname << ">\n";
+      fChain->Add(fname);
+    }
+  }
 
    // Set object pointer
    et_Photon = 0;
@@ -435,8 +449,8 @@ void unfold_RMatrix::Init(TTree *tree)
    phiPhoton = 0;
    gen_preFSR = 0;
    // Set branch addresses and branch pointers
-   if (!tree) return;
-   fChain = tree;
+   //if (!tree) return;
+   //fChain = tree;
    fCurrent = -1;
    fChain->SetMakeClass(1);
 
@@ -552,6 +566,7 @@ void unfold_RMatrix::Init(TTree *tree)
    fChain->SetBranchAddress("phiPhoton", &phiPhoton, &b_phiPhoton);
    fChain->SetBranchAddress("gen_preFSR", &gen_preFSR, &b_gen_preFSR);
    Notify();
+   return 1;
 }
 
 Bool_t unfold_RMatrix::Notify()
@@ -579,4 +594,5 @@ Int_t unfold_RMatrix::Cut(Long64_t entry)
 // returns -1 otherwise.
    return 1;
 }
+#undef unfold_RMatrix_cxx
 #endif // #ifdef unfold_RMatrix_cxx

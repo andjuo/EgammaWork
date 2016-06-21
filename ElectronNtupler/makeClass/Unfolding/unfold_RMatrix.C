@@ -7,7 +7,11 @@
 #include <TLorentzVector.h>
 #include <math.h>
 
+<<<<<<< Updated upstream
 #define TEST_RooUnfoldResponse
+=======
+//#define TEST_RooUnfoldResponse
+>>>>>>> Stashed changes
 
 #ifdef TEST_RooUnfoldResponse
 #include "../RooUnfoldInterface/src/RooUnfoldResponse.h"
