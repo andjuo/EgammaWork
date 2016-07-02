@@ -4,6 +4,9 @@
 #include <iostream>
 #include <TLorentzVector.h>
 #include <math.h>
+#include <TFile.h>
+#include <TTree.h>
+#include <TBranch.h>
 
 Double_t deltaPhi(Double_t phi1, Double_t phi2)
 {
@@ -43,6 +46,7 @@ void unfold_RMatrix() {
   //double noEvts[8] = {631905.,2984400.,100000.,100000.,100000.,100000.,100000.,100000.};
 
   workdir = "/tmp/rchawla/eos/cms/store/group/phys_higgs/cmshww/arun/DYAnalysis_76X_Calibrated/DY_Signal/";
+  workdir = "/home/andriusj/DY13TeV/DYAnalysis_76X_Calibrated/";
   InputFiles_signal_DY.clear();
 
   InputFiles_signal_DY.push_back(TFile::Open(workdir+"DY_10to50.root"));
@@ -67,7 +71,7 @@ void unfold_RMatrix() {
   InputFiles_signal_DY.push_back(TFile::Open(workdir+"Powheg_1400_2300.root"));
   InputFiles_signal_DY.push_back(TFile::Open(workdir+"Powheg_2300_3500.root"));*/
 
-  int nsample = InputFiles_signal_DY.size();
+  unsigned int nsample = InputFiles_signal_DY.size();
   TFile* file[11];
   //TFile* file[8];
 
@@ -83,6 +87,7 @@ void unfold_RMatrix() {
 
     // mc histogram 
     TH1F *MC_puDist = (TH1F*)f2->Get("pileup_MC");
+    std::cout << "MC_puDist->Integral()=" << MC_puDist->Integral() << "\n";
     TH1F *weights = (TH1F*)DATA_puDist->Clone("weights");
     weights->Divide(MC_puDist);
 
@@ -167,7 +172,9 @@ void unfold_RMatrix() {
     T1->SetBranchAddress("eta_Ele23", &eta_Ele23);
     T1->SetBranchAddress("phi_Ele23", &phi_Ele23);
 
-    file[jentry] = new TFile(Form("detRes_Unfold/Systematics/Mass_%dto%d.root",mass[jentry],mass[jentry+1]),"RECREATE");
+    TString outFileName=Form("detRes_Unfold/Systematics/Mass_%dto%d.root",mass[jentry],mass[jentry+1]);
+    outFileName=Form("outMass_%dto%d.root",mass[jentry],mass[jentry+1]);
+    file[jentry] = new TFile(outFileName,"RECREATE");
     TTree *tree = new TTree("tree"," after preselections tree");
 
     double lumi_Weight = xsec[jentry]/sumofWts[jentry];
@@ -191,6 +198,7 @@ void unfold_RMatrix() {
     // Branch declaration
     tree->Branch("massReco", &massReco, "massReco/D");
     tree->Branch("massGen", &massGen, "massGen/D");
+    tree->Branch("massPreFSR", &massGPre, "massPreFSR/D");
     tree->Branch("isReco", &isReco, "isReco/B");
     tree->Branch("isGen", &isGen, "isGen/B");
     tree->Branch("BB", &BB, "BB/B");
@@ -203,15 +211,17 @@ void unfold_RMatrix() {
     vector <double> newelePt; vector <double> neweleEta; vector <double> neweleEnr; vector <double> newelePhi; vector <double> newscEta;
     vector <double> newgenPt; vector <double> newgenEta; vector <double> newgenEnr; vector <double> newgenPhi;
 
-    int nentries = T1->GetEntries();
+    unsigned int nentries = T1->GetEntries();
     //int nentries = 50000;
     cout<<"entries: "<<nentries<<endl;
     for (unsigned int i=0; i < nentries; i++) {
       T1->GetEntry(i);
 
       if(i%1000000 == 0){
-	cout << "Events Processed :  " << i << endl;
+	cout << "Events Processed :  " << i << Form(" (%4.1lf%%)",i*100./nentries) << endl;
       }
+
+      massReco=0; massGen=0; massGPre=0;
 
       // Sorting Reco level
       int index1[ptElec->size()];
@@ -269,7 +279,7 @@ void unfold_RMatrix() {
 	if(Ele23_WPLoose) {
 	  if(ptElec->size()>=2.) {
 
-	    for(int j=0;j<ptElec->size();j++){
+	    for(unsigned int j=0;j<ptElec->size();j++){
 
 	      mediumId = passMediumId->at(index1[j]);
 
