@@ -16,9 +16,15 @@ using std::endl;
 
 #include "TRandom.h"
 #include "TH1D.h"
+#include <TFile.h>
+#include <TH2D.h>
+#include <TCanvas.h>
+#include <TPad.h>
+#include <TLegend.h>
+#include <TLine.h>
 
-#include "RooUnfoldResponse.h"
-#include "RooUnfoldBayes.h"
+#include "../RooUnfoldInterface/src/RooUnfoldResponse.h"
+#include "../RooUnfoldInterface/src/RooUnfoldBayes.h"
 //#include "RooUnfoldSvd.h"
 //#include "RooUnfoldTUnfold.h"
 #endif
@@ -28,13 +34,19 @@ using std::endl;
 // Example Unfolding
 //==============================================================================
 
-void RooUnfold_detRes()
+void RooUnfold_detRes(int theCase=0, int doSaveCanvas=0)
 {
 
-  TFile *f1 = TFile::Open("/home/ridhi/Work/Analysis/76X/Unfolding/detRes_Unfold/DYEE_final_new_test.root");
+  TFile *f1 = NULL;
+  //f1= TFile::Open("/home/ridhi/Work/Analysis/76X/Unfolding/detRes_Unfold/DYEE_final_new_test.root");
+  f1= new TFile("dyee_unf_input.root");
   //TFile *f1 = TFile::Open("/home/ridhi/Work/Analysis/76X/Unfolding/detRes_Unfold/DY_M10to3500_new.root");
+  if (!f1->IsOpen()) {
+    std::cout << "failed to open the file <" << f1->GetName() << ">\n";
+    return;
+  }
 
-  TFile *f2 = TFile::Open("/home/ridhi/Work/Analysis/76X/DYSpectrum/MediumId/histo_bkgsub_datadriven.root");
+  TFile *f2 = NULL; //TFile::Open("/home/ridhi/Work/Analysis/76X/DYSpectrum/MediumId/histo_bkgsub_datadriven.root");
 
   //TFile *file1 = new TFile ("/home/ridhi/Work/Analysis/76X/Unfolding/detRes_Unfold/RespObj_detRes.root","RECREATE");
   //TFile *file1 = new TFile ("/home/ridhi/Work/Analysis/76X/Unfolding/detRes_Unfold/RespObj_detRes_AltSig2.root","RECREATE");
@@ -44,14 +56,19 @@ void RooUnfold_detRes()
   TH1D *hTrue  = (TH1D*)f1->Get("gen_EEMass");
   TH1D *hMeas  = (TH1D*)f1->Get("reco_EEMass");
 
-  TH1D *hData  = (TH1D*)f2->Get("dieleMass");
+  if (!hTrue || !hMeas || !h2Resp) {
+    std::cout << "failed to load distributions\n";
+    return;
+  }
+
+  TH1D *hData  = (!f2) ? NULL : (TH1D*)f2->Get("dieleMass");
 
   //*********************************************************************************************
   TCanvas *c1 = new TCanvas("c1","",141,211,546,489);
   c1->Draw();
   c1->cd();
 
-  c1_2 = new TPad("c1_2","newpad",0.008032129,0.1866667,0.9879518,0.9911111);
+  TPad *c1_2 = new TPad("c1_2","newpad",0.008032129,0.1866667,0.9879518,0.9911111);
   c1_2->SetBottomMargin(0.1);
   c1_2->Draw();
   c1_2->cd();
@@ -60,43 +77,101 @@ void RooUnfold_detRes()
   c1_2->SetGridx();
   c1_2->SetGridy();
 
-  Double_t xbins[44] ={15,20,25,30,35,40,45,50,55,60,64,68,72,76,81,86,91,96,101,106,110,115,120,126,133,141,150,160,171,185,200,220,243,273,
-320,380,440,510,600,700,830,1000,1500,3000};
+  //Double_t xbins[44] ={15,20,25,30,35,40,45,50,55,60,64,68,72,76,81,86,91,96,101,106,110,115,120,126,133,141,150,160,171,185,200,220,243,273,
+  //320,380,440,510,600,700,830,1000,1500,3000};
 
   /*string file;
   std::ofstream outfile;
   outfile.open ("/home/ridhi/Work/Analysis/76X/Unfolding/Inputs1/nEvents_Iter14.txt");
   outfile<<std::fixed;*/
 
-  RooUnfoldResponse response (hMeas, hTrue, h2Resp);
-  response.UseOverflow(false);
+  RooUnfoldResponse *response= new RooUnfoldResponse (hMeas, hTrue, h2Resp);
+  response->UseOverflow(false);
+
+  TString plotTitle="Closure test";
+  plotTitle="ClosureTest: RCh response and the distributions, no overflow";
+  if (theCase==0) {
+    std::cout << "the default case\n";
+  }
+  else if (theCase==1) {
+    plotTitle="ClosureTest: RCh response and the distributions, with overflow";
+    response->UseOverflow(true);
+  }
+  else if (theCase==2) {
+    plotTitle="ClosureTest: AJ response, RCh distributions, no overflow";
+    response= (RooUnfoldResponse*) f1->Get("detRes");
+    if (!response) {
+      std::cout << "failed to get response\n";
+      return;
+    }
+    response->UseOverflow(false);
+  }
+  else if (theCase==3) {
+    plotTitle="ClosureTest: AJ response, RCh distributions, with overflow";
+    response= (RooUnfoldResponse*) f1->Get("detRes");
+    if (!response) {
+      std::cout << "failed to get response\n";
+      return;
+    }
+    response->UseOverflow(true);
+  }
+  else if (theCase==4) {
+    plotTitle="ClosureTest: AJ response matrix and the distributions, no overflow";
+    hMeas= (TH1D*) f1->Get("h1_reco_EEMass");
+    hTrue= (TH1D*) f1->Get("h1_postFSRinAcc_EEMass");
+    response= (RooUnfoldResponse*) f1->Get("detRes");
+    if (!response) {
+      std::cout << "failed to get response\n";
+      return;
+    }
+    response->UseOverflow(false);
+  }
+  else if (theCase==5) {
+    plotTitle="ClosureTest: AJ response matrix and the distributions, with overflow";
+    hMeas= (TH1D*) f1->Get("h1_reco_EEMass");
+    hTrue= (TH1D*) f1->Get("h1_postFSRinAcc_EEMass");
+    response= (RooUnfoldResponse*) f1->Get("detRes");
+    if (!response) {
+      std::cout << "failed to get response\n";
+      return;
+    }
+    response->UseOverflow(true);
+  }
+  else {
+    std::cout << "the code is not ready for theCase=" << theCase << "\n";
+    return;
+  }
+  std::cout << plotTitle << "\n";
+
 
   cout << "==================================== UNFOLD ===================================" << endl;
 
-  RooUnfoldBayes   unfold (&response, hMeas, 14);    // OR
-  //RooUnfoldSvd     unfold (&response, hMeas, 20);   // OR
-  //RooUnfoldTUnfold unfold (&response, hMeas);
+  RooUnfoldBayes   unfold (response, hMeas, 14);    // OR
+  //RooUnfoldSvd     unfold (response, hMeas, 20);   // OR
+  //RooUnfoldTUnfold unfold (response, hMeas);
 
   //hData->Print("all");
 
   TH1D* hUnfold= (TH1D*) unfold.Hreco();
-  cout<<"Fakes : "<<response.FakeEntries()<<endl;
+  cout<<"Fakes : "<<response->FakeEntries()<<endl;
   //cout<<"nEvents unfolded 60-120: "<<hUnfold->Integral(10,22)<<endl;
 
   int nbins = hUnfold->GetNbinsX();
   cout<<"nbins: "<<nbins<<endl;
 
+  if (0) {
   for(int i=1; i<nbins+1; i++) {
 
-   double low = hUnfold->GetBinLowEdge(i);
-   double high = hUnfold->GetBinLowEdge(i+1);
+    double low = hUnfold->GetBinLowEdge(i);
+    double high = hUnfold->GetBinLowEdge(i+1);
 
    double binContent = hUnfold->GetBinContent(i);
    double binError   = hUnfold->GetBinError(i);
-   //cout<<low<<"   "<<high<<endl;
-   //cout<<"Unfolded data: "<<binContent<<"   "<<binError<<endl;
+   cout<<low<<"   "<<high<<endl;
+   cout<<"Unfolded data: "<<binContent<<"   "<<binError<<endl;
    //outfile<<setprecision(2)<<binContent<<endl;
-   //cout<<""<<endl;
+   cout<<""<<endl;
+  }
   }
 
   hTrue->SetStats(0);
@@ -116,10 +191,12 @@ void RooUnfold_detRes()
   hUnfold->SetMarkerStyle(20);
   hUnfold->SetMarkerSize(0.7);
 
-  hData->SetLineColor(kRed);
-  hData->SetMarkerColor(kRed);
-  hData->SetMarkerStyle(22);
-  hData->SetMarkerSize(0.9);
+  if (hData) {
+    hData->SetLineColor(kRed);
+    hData->SetMarkerColor(kRed);
+    hData->SetMarkerStyle(22);
+    hData->SetMarkerSize(0.9);
+  }
 
   hTrue->SetTitle("");
   hTrue->GetXaxis()->SetTitle(""); 
@@ -137,9 +214,10 @@ void RooUnfold_detRes()
   hTrue->GetYaxis()->SetTitleFont(42);
   hTrue->GetYaxis()->SetRangeUser(0.1,1000000.);
 
+  hTrue->SetTitle(plotTitle);
   hTrue->Draw("hist][");
   hUnfold->Draw("esame");
-  hData->Draw("esame");
+  if (hData) hData->Draw("esame");
   //hMeas->Draw("hist same");
   //hUnfold->Print("all");
 
@@ -148,7 +226,7 @@ void RooUnfold_detRes()
   legend1->SetFillColor(0);
   legend1->SetLineColor(1);
   //legend1->SetFillStyle(0);
-  legend1->AddEntry(hData,"Raw (Data, PreUnfolded)");
+  if (hData) legend1->AddEntry(hData,"Raw (Data, PreUnfolded)");
   legend1->AddEntry(hUnfold,"Unfolded (Data)");
   //legend1->AddEntry(hMeas,"Reco Level (Measured)","l");
   legend1->AddEntry(hTrue,"Gen Level (Post FSR)","f");
@@ -184,7 +262,7 @@ void RooUnfold_detRes()
   hRatio->GetYaxis()->SetRangeUser(0.9,1.1);
   hRatio->GetYaxis()->SetNdivisions(5);
 
-  c1_1 = new TPad("c1_1", "newpad",0.008064516,0.0116071,0.9899194,0.2299107);
+  TPad* c1_1 = new TPad("c1_1", "newpad",0.008064516,0.0116071,0.9899194,0.2299107);
   c1_1->Draw();
   c1_1->cd();
   c1_1->SetLogx();
@@ -209,11 +287,25 @@ void RooUnfold_detRes()
   c1->Modified();
   c1->Update();
 
-  //response.Write("UnfoldRes_DetectorRes");
+  //response->Write("UnfoldRes_DetectorRes");
   //file1->Close();
+
+  if (doSaveCanvas) {
+    TString outCanvName=plotTitle;
+    outCanvName.ReplaceAll(" ","_");
+    outCanvName.ReplaceAll(",","_");
+    outCanvName.ReplaceAll(":","_");
+    c1->SaveAs(outCanvName + TString(".png"));
+  }
 
 }
 
 #ifndef __CINT__
-int main () { RooUnfoldExample(); return 0; }  // Main program when run stand-alone
+// Main program when run stand-alone
+int main (int argc, char **argv) {
+  int theCase= (argc>1) ? atoi(argv[1]) : 0;
+  int doSaveCanvas= (argc>2) ? atoi(argv[2]) : 0;
+  RooUnfold_detRes(theCase,doSaveCanvas);
+  return 0;
+}
 #endif
